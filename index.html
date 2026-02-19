@@ -247,7 +247,7 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'thailand_drama_notes_v19';
+    const STORAGE_KEY = 'thailand_drama_notes_v20'; // 提升版本號以強制更新
 
     let initialTags = [
         "Off&Gun", "Tay&New", "Pound&Phwin", "Joong&Dunk", 
@@ -391,15 +391,16 @@
             else if (tag === "First&Khaotung") notebookData[tag] = [...fkDefaults];
             else if (tag === "Gemini&Fourth") notebookData[tag] = [...gfDefaults];
             else if (tag === "Perth&Chimon") notebookData[tag] = [...pcDefaults];
-            else if (tag === "William&Est") notebookData[tag] = [...abDefaults]; // 使用 AouBoom 的預設
+            else if (tag === "William&Est") notebookData[tag] = [...abDefaults];
             else if (tag === "Mile&Apo") notebookData[tag] = [...maDefaults];
             else if (tag === "福桃") notebookData[tag] = [...fortPeatDefaults];
             else if (tag === "其他") notebookData[tag] = [...otherDefaults];
             else notebookData[tag] = [];
         });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(notebookData));
     }
 
-    let currentTag = "Force&Book"; 
+    let currentTag = "其他"; 
     let editingDramaIndex = -1;
 
     function init() {
