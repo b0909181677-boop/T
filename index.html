@@ -62,7 +62,7 @@
             padding-bottom: 10px;
         }
 
-        /* 標籤頁排列 - 手機端自動換行 */
+        /* 標籤頁排列 */
         .tabs-container {
             display: flex;
             flex-wrap: wrap;
@@ -126,6 +126,16 @@
             border-radius: 8px;
             cursor: pointer;
             color: #2e7d32;
+        }
+
+        .recommend-btn {
+            background: #fff3e0;
+            border: 1.5px solid #ff9800;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #e65100;
+            font-weight: bold;
         }
 
         /* 彈窗樣式 */
@@ -197,11 +207,23 @@
             cursor: pointer;
         }
 
+        .secondary-btn {
+            background: #ff9800;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
         .tag-manager {
             margin-top: 40px;
             text-align: center;
             border-top: 1px dashed var(--accent-color);
             padding-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
         }
     </style>
 </head>
@@ -221,8 +243,9 @@
     </div>
 
     <div class="tag-manager">
+        <button onclick="randomRecommend()" class="recommend-btn">✨ 隨機推薦</button>
         <button onclick="addNewTag()" class="add-action-btn">+ 新增標籤</button>
-        <button onclick="deleteCurrentTag()" class="danger-btn" style="background:#8b735544; color:#4a3728; border:1px solid #8b7355; margin-left: 10px;">刪除此標籤</button>
+        <button onclick="deleteCurrentTag()" class="danger-btn" style="background:#8b735544; color:#4a3728; border:1px solid #8b7355;">刪除此標籤</button>
     </div>
 </div>
 
@@ -233,175 +256,144 @@
             <h2 id="modalTitle" class="handwritten text-xl font-bold">編輯筆記</h2>
             <button onclick="closeModal()">✕</button>
         </div>
-        <div class="mb-4">
-            <label class="block text-sm opacity-60">劇名：</label>
-            <input id="editDramaName" type="text" class="w-full bg-transparent border-b border-gray-300 focus:outline-none text-lg">
+        <div id="dramaInfoFields">
+            <div class="mb-4">
+                <label class="block text-sm opacity-60">劇名：</label>
+                <input id="editDramaName" type="text" class="w-full bg-transparent border-b border-gray-300 focus:outline-none text-lg">
+            </div>
+            <div id="tagDisplayField" class="mb-4 hidden">
+                <label class="block text-sm opacity-60">標籤 (CP)：</label>
+                <div id="displayTagName" class="text-lg font-bold text-orange-700"></div>
+            </div>
+            <label class="block text-sm opacity-60">心得筆記：</label>
         </div>
-        <label class="block text-sm opacity-60">心得筆記：</label>
         <textarea id="noteContent" placeholder="寫下你的感想..."></textarea>
-        <div class="btn-group">
+        
+        <!-- 編輯模式按鈕 -->
+        <div id="editModeFooter" class="btn-group">
             <button onclick="deleteDrama()" class="danger-btn">刪除此劇</button>
             <button onclick="saveNote()" class="primary-btn">儲存</button>
+        </div>
+
+        <!-- 推薦模式按鈕 -->
+        <div id="recommendModeFooter" class="btn-group hidden">
+            <button onclick="randomRecommend()" class="secondary-btn">✨ 再選一次</button>
+            <button onclick="closeModal()" class="primary-btn">了解了</button>
         </div>
     </div>
 </div>
 
 <script>
-    // 提升版本號以強制更新預設資料（v32）
-    const STORAGE_KEY = 'thailand_drama_notes_v32'; 
+    const STORAGE_KEY = 'thailand_drama_notes_v37'; 
+    const p10lNote = "嗯...好笑的喜劇。但人設不太好...佛布CP依舊很甜";
+    const heartbeatNote = "當紅愛豆跟助理導演的愛情故事\n細水長流的感覺，穩穩平平的很甜";
 
-    let initialTags = [
-        "Off&Gun", "Tay&New", "Pound&Phwin", "Joong&Dunk", 
-        "Boun&Prem", "Earth&Mix", "Ohm&Nanon", "Force&Book", 
-        "Aou&Boom", "Jimmy&Sea", "First&Khaotung", "Gemini&Fourth", 
-        "Perth&Chimon", "William&Est", "Mile&Apo", "福桃", "其他"
-    ];
-
-    const ogDefaults = [
-        { name: "我們的天空", note: "在第一集出場；是一個靈魂互換相互理解的小番外" },
-        { name: "愛情理論/戀愛傳播學", note: "(有特別篇)經典校園虐戀~\n前期虐滾寶後期虐關大爺；全程虐觀眾。\n10分!!\n刷了好幾次了~就喜歡又甜又虐演技在線的戲啦~" },
-        { name: "他不是我/Not Me", note: "黑暗、寫實、社會議題導向的硬派BL，堪稱泰BL史上最具深度與社會批判力的一部，可惜不是我喜歡的風格但不錯看。\n7分~\n槍爺超帥 小白好甜 Gun演技真的超猛!" },
-        { name: "Cooking Crush", note: "整體風格輕鬆療癒、滿滿OffGun的經典互動：Gun的傲嬌可愛、Off的溫柔霸道，笑點密集、甜度爆表，適合想放鬆追的觀眾。雖然有些人覺得劇情後半稍亂或時間跳躍(有點尬)，但OffGun化學反應依舊炸裂，食物鏡頭拍得讓人流口水可無聊當下飯劇。\n8分~" },
-        { name: "實習生愛情", note: "辦公室戀愛 實習生 × 前輩導師\n職場成長 / 療癒、輕鬆喜劇、甜寵互動、實習生聯盟、副CP甜線 (GL+BL) \n7分...\n挺搞笑 但感情線沒有寫多好，尤其是小海的bg戲份!!女的人設超爛...。\n最後OFF突然消失留學五年才回來就結束了...閃電完結的摸不著頭腦>w<" },
-        { name: "怠倦症候群", note: "正歷經創作瓶頸的年輕藝術家Jira在倦怠酒吧遇見了英俊的技術員Pheem，並在尋求了他的建議下沒多久後就遇見了一名神秘男子Koh，且從Koh接獲了假扮他的代言人工作。然而這份工作報酬雖高卻也福禍相伴，Jira得忍受Koh各種職場上的惡劣行徑，但他也在與Koh的相處中被燃起了創作靈感..." }
-    ];
-
-    const tnDefaults = [
-        { name: "我們的天空", note: "第四集出場~\n妞利用厄運的藉口帶著呆各種玩了一天!超搞笑的OWO" },
-        { name: "深藍之吻", note: "5分~\n有狗血的第三者綠茶情節，而且兩人要嘛缺乏溝通要嘛不信任對方...>A<" },
-        { name: "櫻桃魔法", note: "8分!\n日漫改編得很成功!超純情的戀愛~~~\n呆愛了妞好多年~默默守護又超紳士的超暖心的~" }
-    ];
-
-    const ppDefaults = [
-        { name: "天上的魚/戀上天空魚", note: "8分~\n他們的BL出道作，輕鬆搞笑校園戀\n前期挺搞笑的! 裡面的二哥越看越順眼!\n單詞量極大!!\n但...裡面的私生CP粉看得讓人心裡不適>A<" },
-        { name: "只為你一人/Never Let Me Go", note: "7分~\n保鏢×少爺!!!\n小說超精彩!可惜劇裡改了很多>u<\n不過逃亡到島上的劇情超讚!\n我們的天空2有出現他們的番外!還是超萌的穿越互換身分!!!" },
-        { name: "We Are/相愛的我們", note: "9分!\n大型群像甜寵大學BL~\n搞笑又甜到翻!每對CP都很香~友情線真的令人淚目>0<" },
-        { name: "Me and Thee/冷靜點!Thee先生", note: "8分\n小麵包本色出演!超顛的肥皂劇霸總!全程搞笑!!!!泡芙的腳色有點像超雄...可惜呀~\n意外嗑到威廉與小鯊魚的少爺保鑣組合>w<" }
-    ];
-
-    const jdDefaults = [
-        { name: "Star in My Mind/腦海中的星辰", note: "7分~\n小蛋好奶好可愛~\n冏...要不是因為真的帥不然真的被不長嘴的人設氣炸!\n愛得要死還推開、走了又不願意-_-\n我們的天空2中有出現兩集番外!很甜~~~" },
-        { name: "隱愛議程", note: "8分!\n蛋喜歡的女生是冏前任，於是為了追妹子蛋就找了冏教學~全程高甜!\n可惜後面節奏怪怪的...\n好喜歡這裡的冏~~撩的不要不要的~~" },
-        { name: "愛情獵殺/The Heart Killers", note: "8分!\n雙CP的四人都好養眼!冏糖的殺手兄弟設定我超喜歡!\n沉穩可靠的哥哥與瘋批可愛的弟弟>O<\n蛋的演技有待加強~畢對手都是演技挺好的~\n蛋他搞笑的人設真的好讚~誅九族式的告白...哈哈哈!!\n後面的監獄PLAY真的好香~" },
-        { name: "Dare You to Death", note: "(驚悚/懸疑BL 下屬X上司)" }
-    ];
-
-    const bpDefaults = [
-        { name: "待到重逢時(副CP)", note: "10分!!\n主線是FlukeOhm，但看到文總的Win超級喜歡的!\n痞帥的暖男跟包包的Team相愛相殺的愛情線甜到爆，從這裡就瘋狂嗑BounPrem！" },
-        { name: "戀愛七重奏(第四集)", note: "是個單元劇。\n有點虐戀但是HE" },
-        { name: "我和我的太陽", note: "7分!\nBoun好帥~小太陽有點暴躁...哈哈哈!\n總之妥妥粉絲劇~" },
-        { name: "我們之間/Between Us", note: "9分!\n《待到重逢時》的官方番外/前傳，超愛的WIN來啦!\n床戲加油壓~" },
-        { name: "吸血鬼物語/Revamp: The Undead Story", note: "古董店的青年老闆Pun受委託負責修復一幅古畫，過程中他不慎被玻璃劃傷使得他意外喚醒沉睡百年的吸血鬼Ramil，兩人開始從互助到最後相愛，卻因種族衝突以及Ramil的過往陷入了信任危機..." }
-    ];
-
-    const emDefaults = [
-        { name: "千星傳說", note: "9分!!\n垂直入坑球慧的劇!\n是鄉村背景所以一直感興趣直到偶然刷到番外劇得故事有點意思才看的\n一看直接停不內容！拍的超好超純愛>w<\n風格：鄉村、療癒、成長、甜虐交織。\n我們的天空2有出演番外!" },
-        { name: "邱比特的遺願", note: "7分\n慧慧演的超可愛!但腳色有點不太穩重就是了...\n球哥的腳色就是個大暖男!" },
-        { name: "月光雞油飯", note: "6分\n慧慧開場爆擊!超好看~\n劇情偏寫實平淡，不是我的菜~\n但也是個好劇呦~一仔好可憐~去找你的糖抱抱吧!" },
-        { name: "大叔的愛", note: "5分\n日漫改編的職場搞笑顛劇\n但球哥的人設...一言難盡...好像有看完吧?" }
-    ];
-
-    const onDefaults = [
-        { name: "兩小無拆/Just Friends?", note: "10分!!經典呀~~~好看不俗套 劇情也不拖\n被裡面的吉米驚艷到了!好奶好帥~\n兩人演技一等一的好!" },
-        { name: "我們的天空2", note: "在後面出現兩小的番外\n還是兩人到球慧那去的故事!\n雙廚狂喜!!!" }
-    ];
-
-    const fbDefaults = [
-        { name: "誰是我那個他/Enchanté", note: "還沒看，忘了啥原因沒看的" },
-        { name: "A Boss and a Babe/我的寶貝老闆", note: "8分!\n實習生×老闆\n偶然刷到主題曲被書書的美貌勾來得~\n開屏爆擊的書書超可愛且不做作\n佛寺超適合演霸總的 但聲音又超溫柔的~\n幾乎全程灑糖沒什麼特別劇情 很輕鬆~\n我們的天空2有番外!很有趣的一日互動互換身分PLAY~" },
-        { name: "Only Friends/禁忌摯友", note: "貴圈真亂但刺激" },
-        { name: "Perfect 10 Liners/男神俱樂部", note: "嗯...好笑的喜劇。但人設不太好...佛布CP依舊很甜" },
-        { name: "秘密旋律", note: "一部懸疑劇情劇，講述主角 BotPleng 試圖尋找記憶，卻與身分存疑的 TanKhun 捲入連環命案。警方發現兩具死因相同的屍體，成立專案小組，TanKhun 以顧問身分加入並與 BotPleng 相互懷疑。" }
-    ];
-
-    const abDefaults = [
-        { name: "We Are/相愛的我們", note: "大型群像大學BL\n年下ㄟ~超香的狗姊組合!\n因為這部才喜歡他們的" },
-        { name: "Perfect 10 Liners/男神俱樂部", note: "" },
-        { name: "Memoir of Rati(副CP)", note: "" },
-        { name: "隱愛議程(副CP)", note: "" },
-        { name: "Only Friends: Dream On", note: "群像劇 令人害怕的主役劇" },
-        { name: "Billionaire Biker", note: "" }
-    ];
-
-    const jsDefaults = [
-        { name: "反之亦愛/Vice Versa", note: "8分!\n編劇腦洞超開!是魂穿的穿越劇~\n吉米在裡面超搞笑的!\n很喜歡之中朋友間的氛圍~\n我們的天空2有番外!還是帶崽呦~" },
-        { name: "不曾遺忘的暮色/Last Twilight", note: "7分\n細水長流的感情線 挺治癒的\n穩穩的蠻不錯的" },
-        { name: "親愛的占卜師/My Magic Prophecy", note: "9分!\n當初看預告覺得還好，沒想到....超級好看!\n劇情簡單節奏OK，重點是邏輯!終於正常了!\n裡面的吉米簡使放飛自我超搞笑也超治癒~\n小海越看越好看了!" },
-        { name: "I Will Always Save You", note: "" }
-    ];
-
-    const fkDefaults = [
-        { name: "以愛為蝕/The Eclipse", note: "7分\n不錯!主懸疑推理向加些可愛的純情戲碼\n兩人得演技很吸睛\n我們的天空2中有番外" },
-        { name: "Only Friends/禁忌摯友", note: "貴圈真亂但刺激" },
-        { name: "The Heart Killers/愛情獵殺", note: "殺手與警察線人!\n設定帶感!甜的同時又酸酸的!" },
-        { name: "以貓飼愛", note: "討厭貓咪的Lynx在母親過世後，原本打算賣掉充滿痛苦回憶的貓咪咖啡廳來償還高額貸款。\n沒想到，上門討債的惡魔債主Tiger，竟然擁有與貓咪溝通的特殊能力。\nTiger聽見了店內小貓們守護家園的心聲，決定威脅利誘Lynx共同經營咖啡廳。\n隨著兩人在貓群簇擁下的日久生情，Lynx的兄弟Leo卻突然現身、並企圖奪回咖啡店。\n當高冷店主遇上溫柔債主，一場充滿毛茸茸溫暖與臉紅心跳的「以貓還債」愛情之旅正式展開！" }
-    ];
-
-    const gfDefaults = [
-        { name: "Moonlight Chicken/月光雞油飯", note: "副CP" },
-        { name: "My School President/我的會長男友", note: "7分\n我們的天空2有番外" },
-        { name: "消失的初戀", note: "6分\n日漫改編~但日版超好看!" }
-    ];
-
-    const pcDefaults = [
-        { name: "只為你一人(副CP)", note: "" },
-        { name: "危險羅曼史/Dangerous Romance", note: "7分\n前期泡芙霸靈奇萌的劇情真心不優...\n但後面滿甜的還有些虐\n兩人顏值演技都在線!" }
-    ];
-
-    const maDefaults = [
-        { name: "黑幫少爺愛上我", note: "10分!!!\n每人顏值都在線，各有各的魅力!\n而且沒有泰式假打!打戲超帥!!!劇情搞笑!\n主CP不狗血 又純又慾的大人愛情!\nPETE小天使好甜~聰明又武力值再線!\n可惜真的不喜歡副CP的線" },
-        { name: "Shine", note: "1960年代末動盪時代下，冷靜的經濟學家與奔放的嬉皮歌手之間的禁忌愛情，背景設定在藝術化與復古的圍中" }
-    ];
-
-    const fortPeatDefaults = [
-        { name: "Love in the Air(愛在空氣中)", note: "9分\n第八集開始 NC超讚!超有感覺!福福的總裁 桃桃的男大都好香\n兩人有虐有甜!小說的肉真的...很頂!\n番外兩對CP的肉...ㄚㄚㄚ啊!" },
-        { name: "海洋之戀/Love Sea", note: "7分\n桃桃的作家好精緻!純慾風玩得明明白白~\n後面的情節有點虐點但演得很好!\n番外開車超香超甜" }
-    ];
-
-    const otherDefaults = [
-        { name: "待到重逢時", note: "10分\nN刷了很多次!有甜倒掉牙也有虐到哭的...真心覺得不太膩" },
-        { name: "鬼屋歷險記", note: "一堆ㄎ一ㄤㄎ一ㄤ的人在有女鬼的屋子發癲\n很瘋很誇張 還行吧" },
-        { name: "零的魔力(後面有球慧)", note: "" },
-        { name: "我們的天空", note: "有兩季 都是各種劇的番外!\n世上只有雞媽媽能這麼做了!求第三季壓!" },
-        { name: "愛在空氣中(boss諾恩)", note: "一到七集是他們的小甜劇" },
-        { name: "邪惡新郎愛上我", note: "7分\n狗血劇 演技還好\n有點背德設定 但攻不長嘴!受可憐的小哭包" },
-        { name: "穿越天際靠近你(海景房)", note: "Emmaly是由四個國家\n（Assavadevathin、Buchongphisut、Meenanagarin、Davichmetha）合併而成。\n由於Emmaly國王年事已高，有意退位。故召集每個國家的繼承人參加爭奪戰為自己的父親競爭王位。" },
-        { name: "甜心派(海景房)", note: "兩個不同家族的兒子Lian和Kuea因父母而結下了娃娃親以及兩人漸漸相愛的故事。" },
-        { name: "異世界來的男生(boss諾恩)", note: "Phukan從未有過任何戀愛經驗，對於愛情方面的事也是知之甚無。某天一位冷酷英俊的男人Cirrus走入了他的生活，他自稱來自另外一個平行世界，且對Phukan說道是他的男友..." },
-        { name: "職業替身", note: "中國同名小說改編 演技不錯" },
-        { name: "四方極愛", note: "Easter選擇遠赴他鄉求學，希冀能幫藉此從上一段戀情中徹底走出來，\n然而在新的大學中他卻再次見到記憶中的那名男子 - Hill\n與此同時，他的室友North在一次的醉酒後，竟惹上了一位花心債主並欠了一身債…" },
-        { name: "Leap Day/閨日奪魂", note: "小麵包滾寶主演的懸疑劇" },
-        { name: "程心程意", note: "工程學院學生Bohn要求醫學院新生Duen“每日送玫瑰”的復仇計劃為開端，通過四對情侶的情感發展線索，展現年輕人從誤會到相知的戀愛歷程。" },
-        { name: "原來誓你", note: "Zon某天發現自己的妹妹Soul把他寫進了耽美小說裡，Zon發誓說這些情節絕對不會發生在自己的身上\n然而最後認識了Saifah之後，兩個人都是互相看對方不順眼，但是自從一起參加音樂活動開始\n從此命運讓他們緊緊相連。\n Tutor曾經是個富二代少輩，突然有一天家裡破產從少爺變成了窮小子\n Fighter是個富二代，喜歡用金錢來解決問題，一開始兩人也是相互不喜歡\n可是隨著時間的推移，兩人慢慢相處之後逐漸愛上了對方。" },
-        { name: "被最想擁抱的男人給威脅了", note: "8分\n日漫改編 兩位顏值演技再線\n把一開始的強迫劇情改成慢慢曖昧這點很讚!" },
-        { name: "靈魂重生", note: "9分\n認識了新的CP!肯南平!\n肯超級帥的!南平笑起來是白月光等級~\n是有關因果輪迴前世今生的故事。\n每個人的人設都挺好的、演技也不錯!" },
-        { name: "騙婚", note: "兩名騙子策劃通過假結婚騙取一對富有的表兄弟的財產，卻在過程中愛上目標對象。\n當騙子身份暴露後，兩段關係面臨真相的考驗。" },
-        { name: "愛的香氣", note: "建築師Jom接下一棟清邁老宅的翻修案件，雖然建築本身以及裡頭的家具裝潢都莫名讓他感到熟悉，可遠距男友歸國在即Jom也沒怎多想。\n好不容易等到了男友歸來，誰知卻被告知男友有了未婚妻的殘酷打擊，傷心欲絕的Jom駕車打道回府，卻在路上發生意外車禍墜河。\n待他清醒過來後，他已穿越並身處在拉瑪七世的清邁，更陰錯陽差下成為了不明來歷的奴僕，並結識了英俊高貴的富家少爺Yai..." }
-    ];
+    // 完整的預設數據結構
+    const notebookDataTemplate = {
+        "Off&Gun": [
+            { name: "我們的天空", note: "在第一集出場；是一個靈魂互換相互理解的小番外" },
+            { name: "愛情理論/戀愛傳播學", note: "(有特別篇)經典校園虐戀~\n前期虐滾寶後期虐關大爺；全程虐觀眾。\n10分!!\n刷了好幾次了~就喜歡又甜又虐演技在線的戲啦~" },
+            { name: "他不是我/Not Me", note: "黑暗、寫實、社會議題導向的硬派BL，堪稱泰BL史上最具深度與社會批判力的一部，可惜不是我喜歡的風格但不錯看。\n7分~\n槍爺超帥 小白好甜 Gun演技真的超猛!" },
+            { name: "Cooking Crush", note: "整體風格輕鬆療癒、滿滿OffGun的經典互動：Gun的傲嬌可愛、Off的溫柔霸道，笑點密集、甜度爆表，適合想放鬆追的觀眾。雖然有些人覺得劇情後半稍亂或時間跳躍(有點尬)，但OffGun化學反應依舊炸裂，食物鏡頭拍得讓人流口水可無聊當下飯劇。\n8分~" },
+            { name: "實習生愛情", note: "辦公室戀愛 實習生 × 前輩導師\n職場成長 / 療癒、輕鬆喜劇、甜寵互動、實習生聯盟、副CP甜線 (GL+BL) \n7分...\n挺搞笑 但感情線沒有寫多好，尤其是小海的bg戲份!!女的人設超爛...。\n最後OFF突然消失留學五年才回來就結束了...閃電完結的摸不著頭腦>w<" },
+            { name: "怠倦症候群", note: "正歷經創作瓶頸的年輕藝術家Jira在倦怠酒吧遇見了英俊的技術員Pheem..." }
+        ],
+        "Tay&New": [
+            { name: "我們的天空", note: "第四集出場~\n妞利用厄運的藉口帶著呆各種玩了一天!超搞笑的OWO" },
+            { name: "深藍之吻", note: "5分~\n有狗血的第三者綠茶情節" },
+            { name: "櫻桃魔法", note: "8分!\n日漫改編得很成功!超純情的戀愛~~~" }
+        ],
+        "Pound&Phwin": [
+            { name: "天上的魚/戀上天空魚", note: "8分~\n他們的BL出道作，輕鬆搞笑校園戀" },
+            { name: "只為你一人/Never Let Me Go", note: "7分~\n保鏢×少爺!!!" },
+            { name: "We Are/相愛的我們", note: "9分!\n大型群像甜寵大學BL" },
+            { name: "Me and Thee/冷靜點!Thee先生", note: "8分\n小麵包本色出演!超顛的肥皂劇霸總!" }
+        ],
+        "Joong&Dunk": [
+            { name: "Star in My Mind/腦海中的星辰", note: "7分~\n小蛋好奶好可愛~" },
+            { name: "隱愛議程", note: "8分!\n蛋喜歡的女生是冏前任，於是為了追妹子蛋就找了冏教學~" },
+            { name: "愛情獵殺/The Heart Killers", note: "8分!\n雙CP的四人都好養眼!" },
+            { name: "Dare You to Death", note: "(驚悚/懸疑BL 下屬X上司)" }
+        ],
+        "Boun&Prem": [
+            { name: "待到重逢時(副CP)", note: "10分!!\n主線是FlukeOhm，但看到文總的Win超級喜歡的!" },
+            { name: "我們之間/Between Us", note: "9分!\n《待到重逢時》的官方番外/前傳" }
+        ],
+        "Earth&Mix": [
+            { name: "千星傳說", note: "9分!!\n垂直入坑球慧的劇!" },
+            { name: "月光雞油飯", note: "6分\n慧慧開場爆擊!超好看~" },
+            { name: "大叔的愛", note: "5分\n日漫改編的職場搞笑顛劇" }
+        ],
+        "Ohm&Nanon": [
+            { name: "兩小無拆/Just Friends?", note: "10分!!經典呀~~~" },
+            { name: "我們的天空2", note: "在後面出現兩小的番外" }
+        ],
+        "Force&Book": [
+            { name: "誰是我那個他/Enchanté", note: "還沒看" },
+            { name: "A Boss and a Babe/我的寶貝老闆", note: "8分!\n實習生×老闆" },
+            { name: "Only Friends/禁忌摯友", note: "貴圈真亂但刺激" },
+            { name: "Perfect 10 Liners/男神俱樂部", note: p10lNote },
+            { name: "秘密旋律", note: "一部懸疑劇情劇" }
+        ],
+        "Aou&Boom": [
+            { name: "We Are/相愛的我們", note: "大型群像大學BL\n年下ㄟ~超香的狗姊組合!" },
+            { name: "Perfect 10 Liners/男神俱樂部", note: p10lNote },
+            { name: "Only Friends: Dream On", note: "群像劇 令人害怕的主役劇" }
+        ],
+        "Jimmy&Sea": [
+            { name: "反之亦愛/Vice Versa", note: "8分!\n編劇腦洞超開!是魂穿的穿越劇~" },
+            { name: "不曾遺忘的暮色/Last Twilight", note: "7分\n細水長流的感情線 挺治癒的" },
+            { name: "親愛的占卜師/My Magic Prophecy", note: "9分!\n吉米簡使放飛自我超搞笑也超治癒~" }
+        ],
+        "First&Khaotung": [
+            { name: "以愛為蝕/The Eclipse", note: "7分\n不錯!主懸疑推理向" },
+            { name: "The Heart Killers/愛情獵殺", note: "殺手與警察線人!" },
+            { name: "以貓飼愛", note: "討厭貓咪的Lynx在母親過世後..." }
+        ],
+        "Gemini&Fourth": [
+            { name: "My School President/我的會長男友", note: "7分" },
+            { name: "消失的初戀", note: "6分\n日漫改編" }
+        ],
+        "Perth&Chimon": [
+            { name: "危險羅曼史/Dangerous Romance", note: "7分\n兩人顏值演技都在線!" }
+        ],
+        "William&Est": [
+            { name: "心跳節拍", note: heartbeatNote },
+            { name: "Me and Thee/冷靜點!Thee先生(副CP)", note: "意外嗑到威廉與小鯊魚的少爺保鑣組合>w<" }
+        ],
+        "Mile&Apo": [
+            { name: "黑幫少爺愛上我", note: "10分!!!\n大人愛情！" }
+        ],
+        "福桃": [
+            { name: "Love in the Air(愛在空氣中)", note: "9分\n福福的總裁 桃桃的男大" },
+            { name: "海洋之戀/Love Sea", note: "7分\n桃桃的作家好精緻!" }
+        ],
+        "其他": [
+            { name: "靈魂重生", note: "9分\n肯南平!肯超級帥的!" },
+            { name: "愛的香氣", note: "建築師Jom穿越的故事。" },
+            { name: "待到重逢時", note: "10分\n經典中的經典。" }
+        ]
+    };
 
     let notebookData = JSON.parse(localStorage.getItem(STORAGE_KEY));
     
+    // 初始化或更新邏輯
     if (!notebookData) {
-        notebookData = {};
-        initialTags.forEach(tag => {
-            if (tag === "Off&Gun") notebookData[tag] = [...ogDefaults];
-            else if (tag === "Tay&New") notebookData[tag] = [...tnDefaults];
-            else if (tag === "Pound&Phwin") notebookData[tag] = [...ppDefaults];
-            else if (tag === "Joong&Dunk") notebookData[tag] = [...jdDefaults];
-            else if (tag === "Boun&Prem") notebookData[tag] = [...bpDefaults];
-            else if (tag === "Earth&Mix") notebookData[tag] = [...emDefaults];
-            else if (tag === "Ohm&Nanon") notebookData[tag] = [...onDefaults];
-            else if (tag === "Force&Book") notebookData[tag] = [...fbDefaults];
-            else if (tag === "Aou&Boom") notebookData[tag] = [...abDefaults];
-            else if (tag === "Jimmy&Sea") notebookData[tag] = [...jsDefaults];
-            else if (tag === "First&Khaotung") notebookData[tag] = [...fkDefaults];
-            else if (tag === "Gemini&Fourth") notebookData[tag] = [...gfDefaults];
-            else if (tag === "Perth&Chimon") notebookData[tag] = [...pcDefaults];
-            else if (tag === "William&Est") notebookData[tag] = [...abDefaults];
-            else if (tag === "Mile&Apo") notebookData[tag] = [...maDefaults];
-            else if (tag === "福桃") notebookData[tag] = [...fortPeatDefaults];
-            else if (tag === "其他") notebookData[tag] = [...otherDefaults];
-            else notebookData[tag] = [];
+        notebookData = notebookDataTemplate;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(notebookData));
+    } else {
+        // 更新特定內容
+        Object.keys(notebookData).forEach(tag => {
+            notebookData[tag].forEach(drama => {
+                // 更新心跳節拍
+                if (drama.name === "心跳節拍") {
+                    drama.note = heartbeatNote;
+                }
+                // 統一更新男神俱樂部筆記
+                if (drama.name === "Perfect 10 Liners/男神俱樂部") {
+                    drama.note = p10lNote;
+                }
+            });
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(notebookData));
     }
@@ -453,7 +445,16 @@
         const modal = document.getElementById('noteModal');
         const titleInput = document.getElementById('editDramaName');
         const contentArea = document.getElementById('noteContent');
+        const tagField = document.getElementById('tagDisplayField');
+        const editFooter = document.getElementById('editModeFooter');
+        const recommendFooter = document.getElementById('recommendModeFooter');
         
+        tagField.classList.add('hidden');
+        editFooter.classList.remove('hidden');
+        recommendFooter.classList.add('hidden');
+        titleInput.disabled = false;
+        contentArea.readOnly = false;
+
         if (index === -1) {
             titleInput.value = '';
             contentArea.value = '';
@@ -464,6 +465,40 @@
             contentArea.value = data.note || '';
             document.getElementById('modalTitle').innerText = '編輯筆記';
         }
+        modal.style.display = 'flex';
+    }
+
+    function randomRecommend() {
+        const allDramas = [];
+        Object.keys(notebookData).forEach(tag => {
+            notebookData[tag].forEach(drama => {
+                allDramas.push({ ...drama, tag: tag });
+            });
+        });
+
+        if (allDramas.length === 0) return;
+
+        const randomIndex = Math.floor(Math.random() * allDramas.length);
+        const recommend = allDramas[randomIndex];
+
+        const modal = document.getElementById('noteModal');
+        const titleInput = document.getElementById('editDramaName');
+        const contentArea = document.getElementById('noteContent');
+        const tagField = document.getElementById('tagDisplayField');
+        const tagDisplay = document.getElementById('displayTagName');
+        const editFooter = document.getElementById('editModeFooter');
+        const recommendFooter = document.getElementById('recommendModeFooter');
+
+        document.getElementById('modalTitle').innerText = '✨ 今日隨機推薦';
+        titleInput.value = recommend.name;
+        titleInput.disabled = true;
+        tagField.classList.remove('hidden');
+        tagDisplay.innerText = recommend.tag;
+        contentArea.value = recommend.note || '(暫無簡介)';
+        contentArea.readOnly = true;
+        editFooter.classList.add('hidden');
+        recommendFooter.classList.remove('hidden');
+
         modal.style.display = 'flex';
     }
 
